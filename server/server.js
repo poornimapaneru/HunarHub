@@ -8,6 +8,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
+const seedData = require('./utils/seedData');
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
@@ -46,11 +47,19 @@ app.use('/api/analytics', analyticsRoutes);
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
-    await connectDB();
+    try {
+        await connectDB();
 
-    app.listen(PORT, () => {
-        console.log(`HunarHub Server running on port ${PORT}`);
-    });
+        // Automatically initialize default categories
+        await seedData();
+
+        app.listen(PORT, () => {
+            console.log(`HunarHub Server running on port ${PORT}`);
+        });
+    } catch (error) {
+        console.error('HunarHub Server Startup Failed:', error.message);
+        process.exit(1);
+    }
 };
 
 startServer();
