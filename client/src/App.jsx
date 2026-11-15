@@ -1351,6 +1351,8 @@ const handleApplicationStatus = async (applicationId, newStatus) => {
       return
     }
 
+    const status = newStatus.toLowerCase()
+
     const response = await fetch(
       `${API_BASE_URL}/entrepreneurs/admin/${applicationId}/verification`,
       {
@@ -1360,7 +1362,7 @@ const handleApplicationStatus = async (applicationId, newStatus) => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          verificationStatus: newStatus.toLowerCase(),
+          status: status,
         }),
       }
     )
@@ -1375,12 +1377,16 @@ const handleApplicationStatus = async (applicationId, newStatus) => {
     setEntrepreneurApplications((previousApplications) =>
       previousApplications.map((application) =>
         (application._id || application.id) === applicationId
-          ? { ...application, status: newStatus }
+          ? {
+              ...application,
+              status: status,
+              verificationStatus: status,
+            }
           : application
       )
     )
 
-    alert(`Entrepreneur application ${newStatus.toLowerCase()} successfully!`)
+    alert(`Entrepreneur application ${status} successfully!`)
   } catch (error) {
     console.error('Application Status API Error:', error)
     alert('Unable to connect to the server. Please try again.')
