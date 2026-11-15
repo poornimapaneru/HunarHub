@@ -38,7 +38,7 @@ const seedData = async () => {
         for (const category of defaultCategories) {
             await Category.findOneAndUpdate(
                 { slug: category.slug },
-                { $setOnInsert: category },
+                { $set: category },
                 { upsert: true, new: true }
             );
         }
