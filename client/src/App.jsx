@@ -1191,47 +1191,94 @@ const handleAvailabilityToggle = async () => {
     alert('Unable to connect to the server. Please try again.')
   }
 }
-  // Submit Entrepreneur Application
-
+ // Submit Entrepreneur Application
 const handleEntrepreneurSubmit = async (e) => {
   e.preventDefault()
 
   try {
-    // Step 1: Register Entrepreneur Account
+    const email = entrepreneurData.email.trim().toLowerCase()
+    let token = localStorage.getItem('hunarHubToken')
+    let user = currentCustomer
 
-    const registerResponse = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: entrepreneurData.name.trim(),
-        email: entrepreneurData.email.trim().toLowerCase(),
-        password: entrepreneurData.password,
-        role: 'entrepreneur',
-      }),
-    })
+    // Step 1: Existing entrepreneur account check
+    if (
+      !token ||
+      !user ||
+      user.role !== 'entrepreneur'
+    ) {
+      // Try registering a new entrepreneur account
+      const registerResponse = await fetch(
+        `${API_BASE_URL}/auth/register`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: entrepreneurData.name.trim(),
+            email,
+            password: entrepreneurData.password,
+            role: 'entrepreneur',
+          }),
+        }
+      )
 
-    const registerData = await registerResponse.json()
+      const registerData = await registerResponse.json()
 
-    if (!registerResponse.ok || !registerData.success) {
-      alert(registerData.message || 'Entrepreneur registration failed.')
-      return
+      if (registerResponse.ok && registerData.success) {
+        token = registerData.token
+        user = registerData.user
+      } else {
+        // Account may already exist, so try logging in
+        const loginResponse = await fetch(
+          `${API_BASE_URL}/auth/login`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email,
+              password: entrepreneurData.password,
+            }),
+          }
+        )
+
+        const loginData = await loginResponse.json()
+
+        if (!loginResponse.ok || !loginData.success) {
+          alert(
+            loginData.message ||
+            registerData.message ||
+            'Unable to register or login. Please check your details.'
+          )
+          return
+        }
+
+        token = loginData.token
+        user = loginData.user
+      }
+
+      if (!token) {
+        alert('Authentication token was not received.')
+        return
+      }
+
+      if (user?.role !== 'entrepreneur') {
+        alert('This account is not registered as an entrepreneur.')
+        return
+      }
+
+      localStorage.setItem('hunarHubToken', token)
+      localStorage.setItem(
+        'hunarHubCurrentCustomer',
+        JSON.stringify(user)
+      )
+
+      setCurrentCustomer(user)
     }
 
-    const token = registerData.token
-
-    if (!token) {
-      alert('Registration successful, but authentication token was not received.')
-      return
-    }
-
-    localStorage.setItem('hunarHubToken', token)
-    localStorage.setItem('hunarHubCurrentCustomer', JSON.stringify(registerData.user))
-    setCurrentCustomer(registerData.user)
-
-    // Step 2: Create Entrepreneur Profile
-
+    // Step 2: Create entrepreneur profile
     const profileResponse = await fetch(
       `${API_BASE_URL}/entrepreneurs/my-profile`,
       {
@@ -1244,14 +1291,14 @@ const handleEntrepreneurSubmit = async (e) => {
           name: entrepreneurData.name.trim(),
           skill: entrepreneurData.skill,
           category: entrepreneurData.skill,
-          location: entrepreneurData.location,
+          location: entrepreneurData.location.trim(),
           price: String(entrepreneurData.price),
           experience: entrepreneurData.experience,
-          description: entrepreneurData.description,
-          services: entrepreneurData.services
-            .split(',')
-            .map((service) => service.trim())
-            .filter(Boolean),
+          description: entrepreneurData.description.trim(),
+
+          // Backend model expects a String
+          services: entrepreneurData.services.trim(),
+
           icon: '🧑‍🎨',
         }),
       }
@@ -1262,13 +1309,12 @@ const handleEntrepreneurSubmit = async (e) => {
     if (!profileResponse.ok || !profileData.success) {
       alert(
         profileData.message ||
-        'Account created, but profile creation failed. Please try logging in again.'
+        'Unable to create entrepreneur profile. Please try again.'
       )
       return
     }
 
-    // Step 3: Reset Form
-
+    // Step 3: Reset form
     setEntrepreneurData({
       name: '',
       email: '',
@@ -1284,13 +1330,16 @@ const handleEntrepreneurSubmit = async (e) => {
 
     setShowEntrepreneurForm(false)
 
-    alert('Your entrepreneur account and profile have been created successfully!')
+    alert(
+      'Your entrepreneur profile has been submitted successfully! It is pending admin approval.'
+    )
 
   } catch (error) {
     console.error('Entrepreneur Registration Error:', error)
     alert('Unable to connect to the server. Please try again.')
   }
 }
+
   // Approve or Reject Entrepreneur Application
 
 const handleApplicationStatus = async (applicationId, newStatus) => {
